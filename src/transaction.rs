@@ -1,9 +1,11 @@
 use std::error::Error;
+use std::cmp::Ordering;
 use chrono::{NaiveDate, Datelike};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::date_serializer;
-use crate::PATH;
+use std::env;
+use std::env::VarError;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Transaction {
@@ -15,14 +17,39 @@ struct Transaction {
     // tags: HashSet<String>,
 }
 
+impl Eq for Transaction {}
+
+impl Ord for Transaction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.date.cmp(&other.date)
+    }
+}
+
+impl PartialOrd for Transaction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for Transaction {
+    fn eq(&self, other: &Self) -> bool {
+        self.date == other.date && self.description == other.description
+    }
+}
+
 impl fmt::Display for Transaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}\t{:>7.2}\t{}", self.date, self.amount, self.description)
     }
 }
 
-fn get_filename_from_date(year: u32, month: u32) -> String {
-    format!("{}/{}/{:0>2}.csv", PATH, year, month)
+fn get_base_path() -> Result<String, VarError> {
+    env::var("FEONANCIALS_PATH")
+}
+
+fn get_filename_from_date(year: u32, month: u32) -> Result<String, VarError> {
+    let base_path = get_base_path();
+    Ok(format!("{}/{}/{:0>2}.csv", base_path?, year, month))
 }
 
 fn get_transactions(filename: &str) -> Result<Vec<Transaction>, Box<dyn Error>> {
@@ -42,7 +69,7 @@ fn get_transactions(filename: &str) -> Result<Vec<Transaction>, Box<dyn Error>> 
 }
 
 fn get_sum_for_month(year: u32, month: u32) -> Result<f64, Box<dyn Error>> {
-    let filename = get_filename_from_date(year, month);
+    let filename = get_filename_from_date(year, month)?;
     let transactions = get_transactions(&filename)?;
     Ok(transactions.into_iter().map(|x| x.amount).sum())
 }
@@ -54,7 +81,7 @@ fn print_sum_for_month(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
 }
 
 fn print_list(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
-    let filename = get_filename_from_date(year, month);
+    let filename = get_filename_from_date(year, month)?;
     let transactions = get_transactions(&filename)?;
     for transaction in transactions {
         println!("{}", transaction);
@@ -62,8 +89,9 @@ fn print_list(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn write_entries(transactions: Vec<Transaction>, filename: String) -> Result<(), Box<dyn Error>> {
+fn write_entries(transactions: &mut Vec<Transaction>, filename: String) -> Result<(), Box<dyn Error>> {
     let mut wtr = csv::Writer::from_path(filename)?;
+    transactions.sort();
     for transaction in transactions {
         wtr.serialize(transaction)?;
     }
@@ -77,10 +105,10 @@ fn add_entry(year: u32, month: u32, day: u32, amount: f64, description: &str) ->
         amount,
         description: description.to_string()
     };
-    let filename = get_filename_from_date(year, month);
+    let filename = get_filename_from_date(year, month)?;
     let mut transactions = get_transactions(&filename)?;
     transactions.push(transaction);
-    write_entries(transactions, filename)
+    write_entries(&mut transactions, filename)
 }
 
 pub fn add_date_entry(poss_date: &Option<String>, amount: f64, description: &str) -> Result<(), Box<dyn Error>> {

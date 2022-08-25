@@ -3,8 +3,6 @@ use clap::{Parser, Subcommand};
 mod date_serializer;
 mod transaction;
 
-const PATH: &str = "/home/heringer/Documents/ImportantDocs/financials";
-
 #[derive(Parser)]
 struct Arguments {
     #[clap(subcommand)]
