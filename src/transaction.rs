@@ -83,8 +83,8 @@ fn print_sum_for_month(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
 fn print_list(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
     let filename = get_filename_from_date(year, month)?;
     let transactions = get_transactions(&filename)?;
-    for transaction in transactions {
-        println!("{}", transaction);
+    for (index, transaction) in transactions.iter().enumerate() {
+        println!("{:>3}  {}", index, transaction);
     }
     Ok(())
 }
@@ -125,6 +125,14 @@ pub fn print_date_list(poss_date: &Option<String>, is_detailed: bool) -> Result<
         print_sum_for_month(date.year() as u32, date.month())?;
     }
     Ok(())
+}
+
+pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn Error>> {
+   let date = get_date_or_today(poss_date)?; 
+   let filename = get_filename_from_date(date.year() as u32, date.month())?;
+   let mut transactions = get_transactions(&filename)?;
+   transactions.remove(index);
+   write_entries(&mut transactions, filename)
 }
 
 fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::ParseError> {

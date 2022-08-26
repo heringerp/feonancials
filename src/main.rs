@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod date_serializer;
 mod transaction;
+mod tui_overlay;
 
 #[derive(Parser)]
 struct Arguments {
@@ -29,7 +30,17 @@ enum Commands {
 
         #[clap(long, short, action)]
         full: bool,
-    }
+    },
+
+    Del {
+        #[clap(long, short, action)]
+        date: Option<String>,
+
+        #[clap(value_parser)]
+        index: usize,
+    },
+
+    Menu,
 }
 
 
@@ -41,6 +52,8 @@ fn main() {
         let res = match &arg.command.unwrap() {
             Commands::Add { date, amount, description } => transaction::add_date_entry(date, *amount, description),
             Commands::List { date, full } => transaction::print_date_list(date, *full),
+            Commands::Del { date, index } => transaction::del_entry(date, *index),
+            Commands::Menu => tui_overlay::show_tui(),
         };
         if let Err(r) = res {
             eprintln!("{}", r);
