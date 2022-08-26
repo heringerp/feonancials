@@ -1,15 +1,15 @@
-use std::{io, thread, time::Duration};
-use std::error::Error;
-use tui::{
-    backend::{Backend, CrosstermBackend}, 
-    widgets::{Widget, Block, Borders},
-    layout::{Layout, Constraint, Direction},
-    Frame, Terminal,
-};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use std::error::Error;
+use std::io;
+use tui::{
+    backend::{Backend, CrosstermBackend},
+    layout::{Constraint, Direction, Layout},
+    widgets::{Block, Borders},
+    Frame, Terminal,
 };
 
 pub fn show_tui() -> Result<(), Box<dyn Error>> {
@@ -29,8 +29,16 @@ fn show_tui_with_io_error() -> Result<(), io::Error> {
     let res = run_app(&mut terminal);
 
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen, DisableMouseCapture)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     terminal.show_cursor()?;
+
+    if let Err(r) = res {
+        eprintln!("{:?}", r);
+    }
 
     Ok(())
 }

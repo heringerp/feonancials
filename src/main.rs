@@ -7,8 +7,7 @@ mod tui_overlay;
 #[derive(Parser)]
 struct Arguments {
     #[clap(subcommand)]
-    command: Option<Commands>
-
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand)]
@@ -21,7 +20,7 @@ enum Commands {
         amount: f64,
 
         #[clap(value_parser)]
-        description: String
+        description: String,
     },
 
     List {
@@ -43,14 +42,17 @@ enum Commands {
     Menu,
 }
 
-
 fn main() {
     let arg = Arguments::parse();
     let command = &arg.command;
     if command.is_none() {
     } else {
         let res = match &arg.command.unwrap() {
-            Commands::Add { date, amount, description } => transaction::add_date_entry(date, *amount, description),
+            Commands::Add {
+                date,
+                amount,
+                description,
+            } => transaction::add_date_entry(date, *amount, description),
             Commands::List { date, full } => transaction::print_date_list(date, *full),
             Commands::Del { date, index } => transaction::del_entry(date, *index),
             Commands::Menu => tui_overlay::show_tui(),

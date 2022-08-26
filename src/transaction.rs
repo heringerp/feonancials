@@ -1,11 +1,11 @@
-use std::error::Error;
-use std::cmp::Ordering;
-use chrono::{NaiveDate, Datelike};
-use serde::{Deserialize, Serialize};
-use std::fmt;
 use crate::date_serializer;
+use chrono::{Datelike, NaiveDate};
+use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::env;
 use std::env::VarError;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Transaction {
@@ -39,7 +39,11 @@ impl PartialEq for Transaction {
 
 impl fmt::Display for Transaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\t{:>7.2}\t{}", self.date, self.amount, self.description)
+        write!(
+            f,
+            "{}\t{:>7.2}\t{}",
+            self.date, self.amount, self.description
+        )
     }
 }
 
@@ -89,7 +93,10 @@ fn print_list(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn write_entries(transactions: &mut Vec<Transaction>, filename: String) -> Result<(), Box<dyn Error>> {
+fn write_entries(
+    transactions: &mut Vec<Transaction>,
+    filename: String,
+) -> Result<(), Box<dyn Error>> {
     let mut wtr = csv::Writer::from_path(filename)?;
     transactions.sort();
     for transaction in transactions {
@@ -99,11 +106,17 @@ fn write_entries(transactions: &mut Vec<Transaction>, filename: String) -> Resul
     Ok(())
 }
 
-fn add_entry(year: u32, month: u32, day: u32, amount: f64, description: &str) -> Result<(), Box<dyn Error>> {
+fn add_entry(
+    year: u32,
+    month: u32,
+    day: u32,
+    amount: f64,
+    description: &str,
+) -> Result<(), Box<dyn Error>> {
     let transaction = Transaction {
         date: NaiveDate::from_ymd(year as i32, month, day),
         amount,
-        description: description.to_string()
+        description: description.to_string(),
     };
     let filename = get_filename_from_date(year, month)?;
     let mut transactions = get_transactions(&filename)?;
@@ -111,12 +124,25 @@ fn add_entry(year: u32, month: u32, day: u32, amount: f64, description: &str) ->
     write_entries(&mut transactions, filename)
 }
 
-pub fn add_date_entry(poss_date: &Option<String>, amount: f64, description: &str) -> Result<(), Box<dyn Error>> {
+pub fn add_date_entry(
+    poss_date: &Option<String>,
+    amount: f64,
+    description: &str,
+) -> Result<(), Box<dyn Error>> {
     let date = get_date_or_today(poss_date)?;
-    add_entry(date.year() as u32, date.month(), date.day(), -amount, description)
+    add_entry(
+        date.year() as u32,
+        date.month(),
+        date.day(),
+        -amount,
+        description,
+    )
 }
 
-pub fn print_date_list(poss_date: &Option<String>, is_detailed: bool) -> Result<(), Box<dyn Error>> {
+pub fn print_date_list(
+    poss_date: &Option<String>,
+    is_detailed: bool,
+) -> Result<(), Box<dyn Error>> {
     let date = get_date_or_today(poss_date)?;
     println!("------------------------------------------------------------");
     print_list(date.year() as u32, date.month())?;
@@ -128,19 +154,19 @@ pub fn print_date_list(poss_date: &Option<String>, is_detailed: bool) -> Result<
 }
 
 pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn Error>> {
-   let date = get_date_or_today(poss_date)?; 
-   let filename = get_filename_from_date(date.year() as u32, date.month())?;
-   let mut transactions = get_transactions(&filename)?;
-   transactions.remove(index);
-   write_entries(&mut transactions, filename)
+    let date = get_date_or_today(poss_date)?;
+    let filename = get_filename_from_date(date.year() as u32, date.month())?;
+    let mut transactions = get_transactions(&filename)?;
+    transactions.remove(index);
+    write_entries(&mut transactions, filename)
 }
 
 fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::ParseError> {
     match poss_date {
-        None => { 
+        None => {
             let today = chrono::offset::Local::today();
             Ok(today.naive_local())
-        },
-        Some(date) => date_serializer::string_to_time(&date)
+        }
+        Some(date) => date_serializer::string_to_time(date),
     }
 }
