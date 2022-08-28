@@ -6,6 +6,8 @@ use std::env;
 use std::env::VarError;
 use std::error::Error;
 use std::fmt;
+use std::path::Path;
+use std::fs;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Transaction {
@@ -169,4 +171,29 @@ fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::Pa
         }
         Some(date) => date_serializer::string_to_time(date),
     }
+}
+
+pub fn get_months() -> Result<Vec<String>, Box<dyn Error>> {
+    let base_path_string = get_base_path()?;
+    let base_path = Path::new(&base_path_string); 
+    let mut result = Vec::new();
+    for entry in fs::read_dir(base_path)? {
+        let entry = entry?;
+        let path = entry.path();
+        let path_copy = path.clone();
+        let path_stem = path_copy.file_stem().unwrap().to_str().unwrap();
+        if !path.is_dir() {
+            continue;
+        }
+        for month in fs::read_dir(path)? {
+            let month = month?;
+            let month_path = month.path();
+            if month_path.is_dir() {
+                continue;
+            }
+            let text = format!("{}-{}", path_stem, month_path.file_stem().unwrap().to_str().unwrap());
+            result.push(text);
+        }
+    }
+    Ok(result)
 }

@@ -8,9 +8,13 @@ use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
-    widgets::{Block, Borders},
+    style::{Color, Modifier, Style},
+    text::{Span, Spans},
+    widgets::{Block, Borders, ListState, List, ListItem, Table, BorderType },
     Frame, Terminal,
 };
+
+use crate::transaction;
 
 pub fn show_tui() -> Result<(), Box<dyn Error>> {
     match show_tui_with_io_error() {
@@ -44,8 +48,10 @@ fn show_tui_with_io_error() -> Result<(), io::Error> {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+    let mut month_list_state = ListState::default();
+    month_list_state.select(Some(0));
     loop {
-        terminal.draw(|f| ui(f))?;
+        terminal.draw(|f| ui(f, &mut month_list_state))?;
 
         if let Event::Key(key) = event::read()? {
             if let KeyCode::Char('q') = key.code {
@@ -55,20 +61,57 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>) {
+fn ui<B: Backend>(f: &mut Frame<B>, month_list_state: &mut ListState) {
     let chunks = Layout::default()
-        .direction(Direction::Vertical)
+        .direction(Direction::Horizontal)
         .constraints(
             [
-                Constraint::Percentage(10),
+                Constraint::Percentage(20),
                 Constraint::Percentage(80),
-                Constraint::Percentage(10),
             ]
             .as_ref(),
         )
         .split(f.size());
+    let (left, right) = render_months(month_list_state);
     let block = Block::default().title("Block").borders(Borders::ALL);
-    f.render_widget(block, chunks[0]);
+    f.render_widget(left, chunks[0]);
     let block = Block::default().title("Block 2").borders(Borders::ALL);
-    f.render_widget(block, chunks[2]);
+    f.render_widget(right, chunks[1]);
+}
+
+fn render_months<'a>(month_list_state: &mut ListState) -> (List<'a>, Table<'a>) {
+    let months = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::White))
+        .title("Months")
+        .border_type(BorderType::Plain);
+
+    let month_list = transaction::get_months().unwrap();
+    let items: Vec<_> = month_list
+        .iter()
+        .map(|month| {
+            ListItem::new(Spans::from(vec![Span::styled(
+                        month.clone(),
+                        Style::default(),
+                        )]))
+        })
+    .collect();
+    let selected_month = month_list
+        .get(
+            month_list_state
+            .selected()
+            .expect("there is always a selected month")
+            )
+        .expect("exists")
+        .clone();
+
+    let list = List::new(items).block(months).highlight_style(
+        Style::default()
+        .bg(Color::Yellow)
+        .fg(Color::Black)
+        .add_modifier(Modifier::BOLD),
+        );
+
+    let month_detail = Table::new(vec![]);
+    (list, month_detail)
 }
