@@ -10,11 +10,11 @@ use std::path::Path;
 use std::fs;
 
 #[derive(Debug, Deserialize, Serialize)]
-struct Transaction {
+pub struct Transaction {
     #[serde(with = "date_serializer")]
-    date: NaiveDate,
-    amount: f64,
-    description: String,
+    pub date: NaiveDate,
+    pub amount: f64,
+    pub description: String,
     // switches: HashSet<String>,
     // tags: HashSet<String>,
 }
@@ -155,6 +155,14 @@ pub fn print_date_list(
     Ok(())
 }
 
+pub fn get_transactions_for_month(poss_date: &Option<String>) -> Result<Vec<Transaction>, Box<dyn Error>> {
+    let date = get_date_or_today(poss_date)?;
+    let filename = get_filename_from_date(date.year() as u32, date.month())?;
+    let mut transactions = get_transactions(&filename)?;
+    transactions.sort();
+    Ok(transactions)
+}
+
 pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn Error>> {
     let date = get_date_or_today(poss_date)?;
     let filename = get_filename_from_date(date.year() as u32, date.month())?;
@@ -195,5 +203,6 @@ pub fn get_months() -> Result<Vec<String>, Box<dyn Error>> {
             result.push(text);
         }
     }
+    result.sort();
     Ok(result)
 }
