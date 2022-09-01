@@ -128,9 +128,25 @@ fn ui<B: Backend>(f: &mut Frame<B>, month_list_state: &mut ListState, transactio
             .as_ref(),
         )
         .split(f.size());
+    let month_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Percentage(90),
+                Constraint::Percentage(10),
+            ]
+            .as_ref(),
+        )
+        .split(chunks[1]);
     let (left, right) = render_months(month_list_state, transaction_table_state);
     f.render_stateful_widget(left, chunks[0], month_list_state);
-    f.render_stateful_widget(right, chunks[1], transaction_table_state);
+    f.render_stateful_widget(right, month_chunks[0], transaction_table_state);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::White))
+        .title("Info")
+        .border_type(BorderType::Plain);
+    f.render_widget(block, month_chunks[1]);
 }
 
 fn get_selected_month(month_list_state: &ListState) -> Result<String, Box<dyn Error>> {
