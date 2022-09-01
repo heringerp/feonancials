@@ -182,6 +182,7 @@ dependencies = [
  "csv",
  "serde",
  "tui",
+ "unicode-width",
 ]
 
 [[package]]

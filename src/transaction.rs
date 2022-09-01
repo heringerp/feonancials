@@ -6,8 +6,8 @@ use std::env;
 use std::env::VarError;
 use std::error::Error;
 use std::fmt;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Transaction {
@@ -17,6 +17,16 @@ pub struct Transaction {
     pub description: String,
     // switches: HashSet<String>,
     // tags: HashSet<String>,
+}
+
+impl Default for Transaction {
+    fn default() -> Transaction {
+        Transaction {
+            date: chrono::offset::Local::today().naive_local(),
+            amount: 0.0,
+            description: String::new(),
+        }
+    }
 }
 
 impl Eq for Transaction {}
@@ -126,6 +136,10 @@ fn add_entry(
     write_entries(&mut transactions, filename)
 }
 
+pub fn add_transaction() {
+    // TODO
+}
+
 pub fn add_date_entry(
     poss_date: &Option<String>,
     amount: f64,
@@ -155,7 +169,9 @@ pub fn print_date_list(
     Ok(())
 }
 
-pub fn get_transactions_for_month(poss_date: &Option<String>) -> Result<Vec<Transaction>, Box<dyn Error>> {
+pub fn get_transactions_for_month(
+    poss_date: &Option<String>,
+) -> Result<Vec<Transaction>, Box<dyn Error>> {
     let date = get_date_or_today(poss_date)?;
     let filename = get_filename_from_date(date.year() as u32, date.month())?;
     let mut transactions = get_transactions(&filename)?;
@@ -171,7 +187,7 @@ pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn
     write_entries(&mut transactions, filename)
 }
 
-fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::ParseError> {
+pub fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::ParseError> {
     match poss_date {
         None => {
             let today = chrono::offset::Local::today();
@@ -183,7 +199,7 @@ fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::Pa
 
 pub fn get_months() -> Result<Vec<String>, Box<dyn Error>> {
     let base_path_string = get_base_path()?;
-    let base_path = Path::new(&base_path_string); 
+    let base_path = Path::new(&base_path_string);
     let mut result = Vec::new();
     for entry in fs::read_dir(base_path)? {
         let entry = entry?;
@@ -199,7 +215,11 @@ pub fn get_months() -> Result<Vec<String>, Box<dyn Error>> {
             if month_path.is_dir() {
                 continue;
             }
-            let text = format!("{}-{}", path_stem, month_path.file_stem().unwrap().to_str().unwrap());
+            let text = format!(
+                "{}-{}",
+                path_stem,
+                month_path.file_stem().unwrap().to_str().unwrap()
+            );
             result.push(text);
         }
     }

@@ -12,3 +12,4 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = "0.4"
 clap = { version = "3.1.6", features = ["derive"] }
 tui = { version = "0.19", default-features = false, features = ['crossterm', 'serde'] }
+unicode-width = "0.1.9"
