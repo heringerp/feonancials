@@ -48,6 +48,17 @@ struct App {
     state: ActionState,
 }
 
+impl App {
+    fn refresh_transactions(&mut self) {
+        self.transactions =
+            get_transactions_for_selected_month(&self.month_state).expect("can get transactions");
+    }
+
+    fn refresh_months(&mut self) {
+        self.months = transaction::get_months().unwrap_or_default();
+    }
+}
+
 impl Default for App {
     fn default() -> App {
         let mut app = App {
@@ -119,6 +130,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             app.transactions =
                                 get_transactions_for_selected_month(&app.month_state)
                                     .expect("can get transactions");
+                            app.transaction_state.select(Some(0));
                         }
                     }
                     KeyCode::Char('p') => {
@@ -132,6 +144,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             app.transactions =
                                 get_transactions_for_selected_month(&app.month_state)
                                     .expect("can get transactions");
+                            app.transaction_state.select(Some(0));
                         }
                     }
                     KeyCode::Char('j') => {
@@ -163,12 +176,16 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             .expect("something is always selected");
                         let amount_transactions = app.transactions.len();
                         transaction::del_entry(&poss_month, selected).expect("can delete entry");
-                        if selected == amount_transactions - 1 {
-                            app.transaction_state.select(Some(selected - 1))
+                        if amount_transactions > 1 {
+                            if selected == amount_transactions - 1 {
+                                app.transaction_state.select(Some(selected - 1))
+                            }
                         }
+                        app.refresh_transactions()
                     }
                     KeyCode::Char('a') => {
                         app.state = ActionState::Add(AddState::Date, Transaction::default());
+                        app.input = "".to_string();
                     }
                     KeyCode::Char('u') => {
                         app.state = ActionState::Update;
@@ -229,7 +246,10 @@ fn add_enter(app: &mut App) {
             match state {
                 AddState::Date => {
                     *state = AddState::Amount; 
-                    let poss_date = Some(app.input.clone()); 
+                    let poss_date = match app.input.is_empty() {
+                        true => None,
+                        false => Some(app.input.clone()),
+                    };
                     transaction.date = transaction::get_date_or_today(&poss_date).expect("can get date");
                     app.input = String::new();
                 },
@@ -242,8 +262,12 @@ fn add_enter(app: &mut App) {
                 AddState::Description => {
                     *state = AddState::Date; 
                     transaction.description = app.input.clone();
-                    transaction::add
+                    transaction::add_transaction(transaction.clone()).expect("can write transaction");
+                    *transaction = Transaction::default();
                     app.state = ActionState::Normal;
+                    app.input = "Added entry successfully".to_string();
+                    app.refresh_months();
+                    app.refresh_transactions();
                 },
             }
         },
@@ -263,11 +287,17 @@ fn render_info(app: &mut App) -> (Paragraph, u16) {
         })
         .border_type(BorderType::Plain);
     let (paragraph, width) = match app.state {
-        ActionState::Normal => (Paragraph::new(""), 0),
+        ActionState::Normal => render_normal(app),
         ActionState::Add(a, _) => render_add(app, a),
         ActionState::Update => (Paragraph::new(""), 0),
     };
     (paragraph.block(block), width)
+}
+
+fn render_normal(app: &mut App) -> (Paragraph, u16) {
+    let paragraph = Paragraph::new(app.input.clone())
+        .style(Style::default());
+    (paragraph, 0)
 }
 
 fn render_add(app: &mut App, add_state: AddState) -> (Paragraph, u16) {

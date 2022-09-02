@@ -9,7 +9,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Transaction {
     #[serde(with = "date_serializer")]
     pub date: NaiveDate,
@@ -70,6 +70,12 @@ fn get_filename_from_date(year: u32, month: u32) -> Result<String, VarError> {
 
 fn get_transactions(filename: &str) -> Result<Vec<Transaction>, Box<dyn Error>> {
     let mut transactions = Vec::new();
+
+    // If file does not exists -> no transactions for this month
+    if !Path::new(filename).exists() {
+        return Ok(Vec::new());
+    }
+
     let mut rdr = csv::ReaderBuilder::new()
         // .has_headers(false)
         .trim(csv::Trim::All)
@@ -136,8 +142,11 @@ fn add_entry(
     write_entries(&mut transactions, filename)
 }
 
-pub fn add_transaction() {
-    // TODO
+pub fn add_transaction(transaction: Transaction) -> Result<(), Box<dyn Error>> {
+    let filename = get_filename_from_date(transaction.date.year() as u32, transaction.date.month())?;
+    let mut transactions = get_transactions(&filename)?;
+    transactions.push(transaction);
+    write_entries(&mut transactions, filename)
 }
 
 pub fn add_date_entry(
