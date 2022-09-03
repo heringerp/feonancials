@@ -124,6 +124,15 @@ fn write_entries(
     Ok(())
 }
 
+pub fn write_transactions(transactions: &mut Vec<Transaction>) -> Result<(), Box<dyn Error>> {
+    if transactions.is_empty() {
+        return Ok(());
+    }
+    let date = transactions[0].date;
+    let filename = get_filename_from_date(date.year() as u32, date.month())?;
+    write_entries(transactions, filename)
+}
+
 fn add_entry(
     year: u32,
     month: u32,
