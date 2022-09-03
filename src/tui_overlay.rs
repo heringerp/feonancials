@@ -189,6 +189,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     KeyCode::Char('u') => {
                         app.state = ActionState::Update;
+                        app.input = "".to_string();
                     }
                     _ => {}
                 },
