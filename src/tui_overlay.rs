@@ -3,6 +3,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use chrono::NaiveDate;
 use std::error::Error;
 use std::{fmt, io};
 use tui::{
@@ -40,7 +41,8 @@ impl fmt::Display for AddState {
 }
 
 struct App {
-    months: Vec<String>,
+    months:Vec<String>,
+    current_month: NaiveDate,
     month_state: ListState,
     transaction_state: TableState,
     transactions: Vec<Transaction>,
@@ -50,6 +52,7 @@ struct App {
 
 impl App {
     fn refresh_transactions(&mut self) {
+        self.refresh_current_month();
         self.transactions =
             get_transactions_for_selected_month(&self.month_state).expect("can get transactions");
     }
@@ -57,12 +60,27 @@ impl App {
     fn refresh_months(&mut self) {
         self.months = transaction::get_months().unwrap_or_default();
     }
+
+    fn set_input_to_sum(&mut self) {
+        if let Ok(sum) = transaction::get_formatted_sum_for_month(&self.current_month) {
+            self.input = format!("Sum for current mont: {}", sum);
+        } else {
+            self.input = String::new();
+        }
+    }
+
+    fn refresh_current_month(&mut self) {
+        let month_without_day = &self.months[self.month_state.selected().expect("something is selected")];
+        let month_with_day = format!("{}-01", month_without_day);
+        self.current_month = transaction::get_date(&month_with_day).expect("months are correct");
+    }
 }
 
 impl Default for App {
     fn default() -> App {
         let mut app = App {
             months: transaction::get_months().unwrap_or_default(),
+            current_month: NaiveDate::default(),
             transactions: Vec::new(),
             input: String::new(),
             month_state: ListState::default(),
@@ -70,9 +88,10 @@ impl Default for App {
             state: ActionState::Normal,
         };
         app.month_state.select(Some(app.months.len() - 1));
+        app.refresh_current_month();
         app.transaction_state.select(Some(0));
         app.transactions =
-            get_transactions_for_selected_month(&app.month_state).expect("can get transactions");
+            get_transactions_for_selected_month(&app.month_state).unwrap_or_default();
         app
     }
 }
@@ -112,6 +131,7 @@ fn show_tui_with_io_error() -> Result<(), io::Error> {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+    app.set_input_to_sum();
     loop {
         terminal.draw(|f| ui(f, &mut app))?;
 
@@ -127,10 +147,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             } else {
                                 app.month_state.select(Some(selected + 1))
                             }
-                            app.transactions =
-                                get_transactions_for_selected_month(&app.month_state)
-                                    .expect("can get transactions");
+                            app.refresh_transactions();
                             app.transaction_state.select(Some(0));
+                            app.set_input_to_sum();
                         }
                     }
                     KeyCode::Char('p') => {
@@ -141,10 +160,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             } else {
                                 app.month_state.select(Some(amount_months - 1))
                             }
-                            app.transactions =
-                                get_transactions_for_selected_month(&app.month_state)
-                                    .expect("can get transactions");
+                            app.refresh_transactions();
                             app.transaction_state.select(Some(0));
+                            app.set_input_to_sum();
                         }
                     }
                     KeyCode::Char('j') => {
@@ -169,19 +187,28 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     KeyCode::Char('d') => {
                         let poss_month =
+                            // expect is okay, since error only happens when files are out of sync
+                            // with application
                             Some(get_selected_month(&app.month_state).expect("can get month"));
-                        let selected = app
-                            .transaction_state
-                            .selected()
-                            .expect("something is always selected");
-                        let amount_transactions = app.transactions.len();
-                        transaction::del_entry(&poss_month, selected).expect("can delete entry");
-                        if amount_transactions > 1 {
-                            if selected == amount_transactions - 1 {
-                                app.transaction_state.select(Some(selected - 1))
+                        if let Some(selected) = app.transaction_state.selected() {
+                            let amount_transactions = app.transactions.len();
+                            let result = transaction::del_entry(&poss_month, selected);
+                            match result {
+                                Ok(_) => {
+                                    if amount_transactions > 1 {
+                                        if selected == amount_transactions - 1 {
+                                            app.transaction_state.select(Some(selected - 1))
+                                        }
+                                    }
+                                    app.refresh_transactions();
+                                },
+                                Err(_) => {
+                                    app.input = "Cannot delete entry".to_string();
+                                }
                             }
+                        } else {
+                            app.input = "No entry to delete is selected".to_string();
                         }
-                        app.refresh_transactions()
                     }
                     KeyCode::Char('a') => {
                         app.state = ActionState::Add(AddState::Date, Transaction::default());
@@ -246,12 +273,14 @@ fn add_enter(app: &mut App) {
         ActionState::Add(ref mut state, ref mut transaction) => { 
             match state {
                 AddState::Date => {
-                    *state = AddState::Amount; 
                     let poss_date = match app.input.is_empty() {
                         true => None,
                         false => Some(app.input.clone()),
                     };
-                    transaction.date = transaction::get_date_or_today(&poss_date).expect("can get date");
+                    if let Ok(date) = transaction::get_date_or_today(&poss_date) {
+                        transaction.date = date;
+                        *state = AddState::Amount; 
+                    }
                     app.input = String::new();
                 },
                 AddState::Amount => {

@@ -96,6 +96,11 @@ fn get_sum_for_month(year: u32, month: u32) -> Result<f64, Box<dyn Error>> {
     Ok(transactions.into_iter().map(|x| x.amount).sum())
 }
 
+pub fn get_formatted_sum_for_month(date: &NaiveDate) -> Result<String, Box<dyn Error>> {
+    let sum = get_sum_for_month(date.year() as u32, date.month())?;
+    Ok(format!("{:.2}", sum))
+}
+
 fn print_sum_for_month(year: u32, month: u32) -> Result<(), Box<dyn Error>> {
     let sum = get_sum_for_month(year, month)?;
     println!("Sum:\t\t{:>7.2}", sum);
@@ -194,6 +199,10 @@ pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn
     let mut transactions = get_transactions(&filename)?;
     transactions.remove(index);
     write_entries(&mut transactions, filename)
+}
+
+pub fn get_date(date: &str) -> Result<NaiveDate, chrono::ParseError> {
+    date_serializer::string_to_time(date)
 }
 
 pub fn get_date_or_today(poss_date: &Option<String>) -> Result<NaiveDate, chrono::ParseError> {
