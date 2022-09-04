@@ -22,7 +22,7 @@ use unicode_width::UnicodeWidthStr;
 enum ActionState {
     Normal,
     Add(AddState, Transaction),
-    Update,
+    Update(UpdateState, Transaction),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -33,6 +33,21 @@ enum AddState {
 }
 
 impl fmt::Display for AddState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+        // or, alternatively:
+        // fmt::Debug::fmt(self, f)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum UpdateState {
+    Date,
+    Amount,
+    Description,
+}
+
+impl fmt::Display for UpdateState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
         // or, alternatively:
@@ -215,12 +230,13 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         app.input = "".to_string();
                     }
                     KeyCode::Char('u') => {
-                        app.state = ActionState::Update;
-                        app.input = "".to_string();
+                        let transaction = app.transactions[app.transaction_state.selected().expect("there is smth. selected")].clone();
+                        app.input = transaction.date.to_string();
+                        app.state = ActionState::Update(UpdateState::Date, transaction);
                     }
                     _ => {}
                 },
-                ActionState::Add(_, _) | ActionState::Update => match key.code {
+                ActionState::Add(_, _) | ActionState::Update(_, _) => match key.code {
                     KeyCode::Esc => {
                         app.state = ActionState::Normal;
                     },
@@ -231,7 +247,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Enter => {
                         match app.state {
                             ActionState::Add(_, _) => { add_enter(&mut app) }
-                            ActionState::Update => {},
+                            ActionState::Update(_, _) => { update_enter(&mut app) },
                             _ => {},
                         }
                     },
@@ -259,7 +275,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     match app.state {
         ActionState::Normal => {}
-        ActionState::Add(_, _) | ActionState::Update => {
+        ActionState::Add(_, _) | ActionState::Update(_, _) => {
             f.set_cursor(
                 month_chunks[1].x + width + 1,
                 month_chunks[1].y + 1,
@@ -303,7 +319,41 @@ fn add_enter(app: &mut App) {
         },
         _ => {},
     }
-    
+}
+
+fn update_enter(app: &mut App) {
+    match app.state {
+        ActionState::Update(ref mut state, ref mut transaction) => { 
+            match state {
+                UpdateState::Date => {
+                    *state = UpdateState::Amount; 
+                    let poss_date = match app.input.is_empty() {
+                        true => None,
+                        false => Some(app.input.clone()),
+                    };
+                    transaction.date = transaction::get_date_or_today(&poss_date).expect("can get date");
+                    app.input = transaction.amount.to_string();
+                },
+                UpdateState::Amount => {
+                    *state = UpdateState::Description; 
+                    let amount: f64 = app.input.parse().expect("can get amount"); 
+                    transaction.amount = amount;
+                    app.input = transaction.description.to_string();
+                },
+                UpdateState::Description => {
+                    *state = UpdateState::Date; 
+                    transaction.description = app.input.clone();
+                    app.transactions[app.transaction_state.selected().expect("can get selected")] = transaction.clone();
+                    transaction::write_transactions(&mut app.transactions).expect("can write");
+                    app.state = ActionState::Normal;
+                    app.input = "Updated entry successfully".to_string();
+                    app.refresh_months();
+                    app.refresh_transactions();
+                },
+            }
+        },
+        _ => {},
+    }
 }
 
 fn render_info(app: &mut App) -> (Paragraph, u16) {
@@ -313,13 +363,13 @@ fn render_info(app: &mut App) -> (Paragraph, u16) {
         .title(match app.state {
             ActionState::Normal => "Info",
             ActionState::Add(_, _) => "Add",
-            ActionState::Update => "Update",
+            ActionState::Update(_, _) => "Update",
         })
         .border_type(BorderType::Plain);
     let (paragraph, width) = match app.state {
         ActionState::Normal => render_normal(app),
         ActionState::Add(a, _) => render_add(app, a),
-        ActionState::Update => (Paragraph::new(""), 0),
+        ActionState::Update(a, _) => render_update(app, a),
     };
     (paragraph.block(block), width)
 }
@@ -332,6 +382,11 @@ fn render_normal(app: &mut App) -> (Paragraph, u16) {
 
 fn render_add(app: &mut App, add_state: AddState) -> (Paragraph, u16) {
     let text = format!("{}: {}", add_state, app.input);
+    (Paragraph::new(text.clone()).style(Style::default()), text.width() as u16)
+}
+
+fn render_update(app: &mut App, update_state: UpdateState) -> (Paragraph, u16) {
+    let text = format!("{}: {}", update_state, app.input);
     (Paragraph::new(text.clone()).style(Style::default()), text.width() as u16)
 }
 
