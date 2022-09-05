@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 mod date_serializer;
 mod transaction;
-mod tui_overlay;
+mod tui;
 
 #[derive(Parser)]
 struct Arguments {
@@ -55,7 +55,7 @@ fn main() {
             } => transaction::add_date_entry(date, *amount, description),
             Commands::List { date, full } => transaction::print_date_list(date, *full),
             Commands::Del { date, index } => transaction::del_entry(date, *index),
-            Commands::Menu => tui_overlay::show_tui(),
+            Commands::Menu => tui::show_tui(),
         };
         if let Err(r) = res {
             eprintln!("{}", r);

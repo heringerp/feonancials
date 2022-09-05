@@ -211,6 +211,13 @@ pub fn del_entry(poss_date: &Option<String>, index: usize) -> Result<(), Box<dyn
     write_entries(&mut transactions, filename)
 }
 
+pub fn del_entry_by_date(date: &NaiveDate, index: usize) -> Result<(), Box<dyn Error>> {
+    let filename = get_filename_from_date(date.year() as u32, date.month())?;
+    let mut transactions = get_transactions(&filename)?;
+    transactions.remove(index);
+    write_entries(&mut transactions, filename)
+}
+
 pub fn get_date(date: &str) -> Result<NaiveDate, chrono::ParseError> {
     date_serializer::string_to_time(date)
 }
