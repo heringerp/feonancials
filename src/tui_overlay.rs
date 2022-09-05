@@ -1,9 +1,9 @@
+use chrono::NaiveDate;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use chrono::NaiveDate;
 use std::error::Error;
 use std::{fmt, io};
 use tui::{
@@ -56,7 +56,7 @@ impl fmt::Display for UpdateState {
 }
 
 struct App {
-    months:Vec<String>,
+    months: Vec<String>,
     current_month: NaiveDate,
     month_state: ListState,
     transaction_state: TableState,
@@ -78,14 +78,15 @@ impl App {
 
     fn set_input_to_sum(&mut self) {
         if let Ok(sum) = transaction::get_formatted_sum_for_month(&self.current_month) {
-            self.input = format!("Sum for current mont: {}", sum);
+            self.input = format!("Sum for current month: {}", sum);
         } else {
             self.input = String::new();
         }
     }
 
     fn refresh_current_month(&mut self) {
-        let month_without_day = &self.months[self.month_state.selected().expect("something is selected")];
+        let month_without_day =
+            &self.months[self.month_state.selected().expect("something is selected")];
         let month_with_day = format!("{}-01", month_without_day);
         self.current_month = transaction::get_date(&month_with_day).expect("months are correct");
     }
@@ -216,7 +217,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                                         }
                                     }
                                     app.refresh_transactions();
-                                },
+                                }
                                 Err(_) => {
                                     app.input = "Cannot delete entry".to_string();
                                 }
@@ -230,7 +231,11 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         app.input = "".to_string();
                     }
                     KeyCode::Char('u') => {
-                        let transaction = app.transactions[app.transaction_state.selected().expect("there is smth. selected")].clone();
+                        let transaction = app.transactions[app
+                            .transaction_state
+                            .selected()
+                            .expect("there is smth. selected")]
+                        .clone();
                         app.input = transaction.date.to_string();
                         app.state = ActionState::Update(UpdateState::Date, transaction);
                     }
@@ -239,17 +244,15 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 ActionState::Add(_, _) | ActionState::Update(_, _) => match key.code {
                     KeyCode::Esc => {
                         app.state = ActionState::Normal;
-                    },
+                    }
                     KeyCode::Char(c) => app.input.push(c),
                     KeyCode::Backspace => {
                         app.input.pop();
-                    },
-                    KeyCode::Enter => {
-                        match app.state {
-                            ActionState::Add(_, _) => { add_enter(&mut app) }
-                            ActionState::Update(_, _) => { update_enter(&mut app) },
-                            _ => {},
-                        }
+                    }
+                    KeyCode::Enter => match app.state {
+                        ActionState::Add(_, _) => add_enter(&mut app),
+                        ActionState::Update(_, _) => update_enter(&mut app),
+                        _ => {}
                     },
                     _ => {}
                 },
@@ -276,83 +279,78 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     match app.state {
         ActionState::Normal => {}
         ActionState::Add(_, _) | ActionState::Update(_, _) => {
-            f.set_cursor(
-                month_chunks[1].x + width + 1,
-                month_chunks[1].y + 1,
-            );
+            f.set_cursor(month_chunks[1].x + width + 1, month_chunks[1].y + 1);
         }
     };
 }
 
 fn add_enter(app: &mut App) {
     match app.state {
-        ActionState::Add(ref mut state, ref mut transaction) => { 
-            match state {
-                AddState::Date => {
-                    let poss_date = match app.input.is_empty() {
-                        true => None,
-                        false => Some(app.input.clone()),
-                    };
-                    if let Ok(date) = transaction::get_date_or_today(&poss_date) {
-                        transaction.date = date;
-                        *state = AddState::Amount; 
-                    }
-                    app.input = String::new();
-                },
-                AddState::Amount => {
-                    *state = AddState::Description; 
-                    let amount: f64 = app.input.parse().expect("can get amount"); 
-                    transaction.amount = amount;
-                    app.input = String::new();
-                },
-                AddState::Description => {
-                    *state = AddState::Date; 
-                    transaction.description = app.input.clone();
-                    transaction::add_transaction(transaction.clone()).expect("can write transaction");
-                    *transaction = Transaction::default();
-                    app.state = ActionState::Normal;
-                    app.input = "Added entry successfully".to_string();
-                    app.refresh_months();
-                    app.refresh_transactions();
-                },
+        ActionState::Add(ref mut state, ref mut transaction) => match state {
+            AddState::Date => {
+                let poss_date = match app.input.is_empty() {
+                    true => None,
+                    false => Some(app.input.clone()),
+                };
+                if let Ok(date) = transaction::get_date_or_today(&poss_date) {
+                    transaction.date = date;
+                    *state = AddState::Amount;
+                }
+                app.input = String::new();
+            }
+            AddState::Amount => {
+                *state = AddState::Description;
+                let amount: f64 = app.input.parse().expect("can get amount");
+                transaction.amount = amount;
+                app.input = String::new();
+            }
+            AddState::Description => {
+                *state = AddState::Date;
+                transaction.description = app.input.clone();
+                transaction::add_transaction(transaction.clone()).expect("can write transaction");
+                *transaction = Transaction::default();
+                app.state = ActionState::Normal;
+                app.input = "Added entry successfully".to_string();
+                app.refresh_months();
+                app.refresh_transactions();
             }
         },
-        _ => {},
+        _ => {}
     }
 }
 
 fn update_enter(app: &mut App) {
     match app.state {
-        ActionState::Update(ref mut state, ref mut transaction) => { 
-            match state {
-                UpdateState::Date => {
-                    *state = UpdateState::Amount; 
-                    let poss_date = match app.input.is_empty() {
-                        true => None,
-                        false => Some(app.input.clone()),
-                    };
-                    transaction.date = transaction::get_date_or_today(&poss_date).expect("can get date");
-                    app.input = transaction.amount.to_string();
-                },
-                UpdateState::Amount => {
-                    *state = UpdateState::Description; 
-                    let amount: f64 = app.input.parse().expect("can get amount"); 
-                    transaction.amount = amount;
-                    app.input = transaction.description.to_string();
-                },
-                UpdateState::Description => {
-                    *state = UpdateState::Date; 
-                    transaction.description = app.input.clone();
-                    app.transactions[app.transaction_state.selected().expect("can get selected")] = transaction.clone();
-                    transaction::write_transactions(&mut app.transactions).expect("can write");
-                    app.state = ActionState::Normal;
-                    app.input = "Updated entry successfully".to_string();
-                    app.refresh_months();
-                    app.refresh_transactions();
-                },
+        ActionState::Update(ref mut state, ref mut transaction) => match state {
+            UpdateState::Date => {
+                *state = UpdateState::Amount;
+                let poss_date = match app.input.is_empty() {
+                    true => None,
+                    false => Some(app.input.clone()),
+                };
+                transaction.date =
+                    transaction::get_date_or_today(&poss_date).expect("can get date");
+                app.input = transaction.amount.to_string();
+            }
+            UpdateState::Amount => {
+                *state = UpdateState::Description;
+                let amount: f64 = app.input.parse().expect("can get amount");
+                transaction.amount = amount;
+                app.input = transaction.description.to_string();
+            }
+            UpdateState::Description => {
+                *state = UpdateState::Date;
+                transaction.description = app.input.clone();
+                app.transactions[app.transaction_state.selected().expect("can get selected")] =
+                    transaction.clone();
+                transaction::write_transactions(&mut app.transactions).expect("can write");
+                app.state = ActionState::Normal;
+                app.input = "Updated entry successfully".to_string();
+                app.refresh_months();
+                app.refresh_transactions();
             }
         },
-        _ => {},
+        _ => {}
     }
 }
 
@@ -375,19 +373,24 @@ fn render_info(app: &mut App) -> (Paragraph, u16) {
 }
 
 fn render_normal(app: &mut App) -> (Paragraph, u16) {
-    let paragraph = Paragraph::new(app.input.clone())
-        .style(Style::default());
+    let paragraph = Paragraph::new(app.input.clone()).style(Style::default());
     (paragraph, 0)
 }
 
 fn render_add(app: &mut App, add_state: AddState) -> (Paragraph, u16) {
     let text = format!("{}: {}", add_state, app.input);
-    (Paragraph::new(text.clone()).style(Style::default()), text.width() as u16)
+    (
+        Paragraph::new(text.clone()).style(Style::default()),
+        text.width() as u16,
+    )
 }
 
 fn render_update(app: &mut App, update_state: UpdateState) -> (Paragraph, u16) {
     let text = format!("{}: {}", update_state, app.input);
-    (Paragraph::new(text.clone()).style(Style::default()), text.width() as u16)
+    (
+        Paragraph::new(text.clone()).style(Style::default()),
+        text.width() as u16,
+    )
 }
 
 fn get_selected_month(month_list_state: &ListState) -> Result<String, Box<dyn Error>> {

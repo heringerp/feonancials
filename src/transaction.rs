@@ -157,7 +157,8 @@ fn add_entry(
 }
 
 pub fn add_transaction(transaction: Transaction) -> Result<(), Box<dyn Error>> {
-    let filename = get_filename_from_date(transaction.date.year() as u32, transaction.date.month())?;
+    let filename =
+        get_filename_from_date(transaction.date.year() as u32, transaction.date.month())?;
     let mut transactions = get_transactions(&filename)?;
     transactions.push(transaction);
     write_entries(&mut transactions, filename)
