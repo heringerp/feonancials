@@ -21,6 +21,9 @@ enum Commands {
 
         #[clap(value_parser)]
         description: String,
+
+        #[clap(value_parser)]
+        repeat: Option<String>,
     },
 
     List {
@@ -52,7 +55,8 @@ fn main() {
                 date,
                 amount,
                 description,
-            } => transaction::add_date_entry(date, *amount, description),
+                repeat,
+            } => transaction::add_date_entry(date, *amount, description, repeat),
             Commands::List { date, full } => transaction::print_date_list(date, *full),
             Commands::Del { date, index } => transaction::del_entry(date, *index),
             Commands::Menu => tui::show_tui(),

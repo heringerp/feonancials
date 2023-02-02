@@ -4,12 +4,14 @@ use std::error::Error;
 use chrono::NaiveDate;
 use tui::widgets::{TableState, ListState};
 
+// Possible Actions one can partake
 pub enum ActionState {
     Normal,
     Add(AddState, Transaction),
     Update(UpdateState, Transaction),
 }
 
+// Phases when adding a new entry
 #[derive(Debug, Clone, Copy)]
 pub enum AddState {
     Date,
@@ -25,6 +27,7 @@ impl fmt::Display for AddState {
     }
 }
 
+// Phases when editing an entry
 #[derive(Debug, Clone, Copy)]
 pub enum UpdateState {
     Date,

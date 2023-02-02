@@ -7,7 +7,17 @@ use std::env::VarError;
 use std::error::Error;
 use std::fmt;
 use std::fs;
+use std::num::ParseIntError;
 use std::path::Path;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum Repeat {
+    Day(u32),
+    Week(u32),
+    Month(u32),
+    Year(u32),
+    None,
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Transaction {
@@ -15,6 +25,7 @@ pub struct Transaction {
     pub date: NaiveDate,
     pub amount: f64,
     pub description: String,
+    pub repeat: Repeat,
     // switches: HashSet<String>,
     // tags: HashSet<String>,
 }
@@ -25,6 +36,7 @@ impl Default for Transaction {
             date: chrono::offset::Local::today().naive_local(),
             amount: 0.0,
             description: String::new(),
+            repeat: Repeat::None,
         }
     }
 }
@@ -144,16 +156,37 @@ fn add_entry(
     day: u32,
     amount: f64,
     description: &str,
+    repeat: &str
 ) -> Result<(), Box<dyn Error>> {
     let transaction = Transaction {
         date: NaiveDate::from_ymd(year as i32, month, day),
         amount,
         description: description.to_string(),
+        repeat: get_repeat_from_str(repeat)?
     };
     let filename = get_filename_from_date(year, month)?;
     let mut transactions = get_transactions(&filename)?;
     transactions.push(transaction);
     write_entries(&mut transactions, filename)
+}
+
+fn get_repeat_from_str(repeat: &str) -> Result<Repeat, Box<dyn Error>> {
+    if repeat.len() == 0 {
+        return Ok(Repeat::None);
+    }
+    let res = match repeat.as_bytes()[repeat.len() - 1] as char {
+        'd' => Repeat::Day(get_amount_from_repeat_str(repeat)?),
+        'w' => Repeat::Week(get_amount_from_repeat_str(repeat)?),
+        'm' => Repeat::Month(get_amount_from_repeat_str(repeat)?),
+        'y' => Repeat::Year(get_amount_from_repeat_str(repeat)?),
+        _ => Repeat::None,
+    };
+    Ok(res)
+}
+
+fn get_amount_from_repeat_str(repeat: &str) -> Result<u32, ParseIntError> {
+    let trim = &repeat[..repeat.len() - 1];
+    trim.parse()
 }
 
 pub fn add_transaction(transaction: Transaction) -> Result<(), Box<dyn Error>> {
@@ -168,6 +201,7 @@ pub fn add_date_entry(
     poss_date: &Option<String>,
     amount: f64,
     description: &str,
+    repeat: &Option<String>,
 ) -> Result<(), Box<dyn Error>> {
     let date = get_date_or_today(poss_date)?;
     add_entry(
@@ -176,6 +210,10 @@ pub fn add_date_entry(
         date.day(),
         -amount,
         description,
+        match repeat {
+            Some(v) => &v[..],
+            None => "",
+        }
     )
 }
 
