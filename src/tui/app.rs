@@ -100,7 +100,7 @@ impl Default for App {
     }
 }
 
-
+// gets the selected month
 fn get_selected_month(month_list_state: &ListState) -> Result<String, Box<dyn Error>> {
     let month_list = transaction::get_months()?;
     let selected_month = month_list
